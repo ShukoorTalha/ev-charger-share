@@ -1,0 +1,67 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: create-admin-user
+  namespace: evchargershare
+  labels:
+    app: create-admin
+spec:
+  template:
+    metadata:
+      labels:
+        app: create-admin
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: create-admin
+        image: chargershare-backend:latest
+        imagePullPolicy: Never
+        command: ["node", "scripts/createAdmin.js"]
+        envFrom:
+        - configMapRef:
+            name: app-config
+        - secretRef:
+            name: app-secrets
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+  backoffLimit: 3
+---
+# Alternative job with custom admin credentials
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: create-custom-admin-user
+  namespace: evchargershare
+  labels:
+    app: create-custom-admin
+spec:
+  template:
+    metadata:
+      labels:
+        app: create-custom-admin
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: create-custom-admin
+        image: chargershare-backend:latest
+        imagePullPolicy: Never
+        command: ["node", "scripts/createAdmin.js"]
+        args: ["--email", "admin@yourcompany.com", "--password", "YourSecurePassword123!", "--name", "Your Admin Name"]
+        envFrom:
+        - configMapRef:
+            name: app-config
+        - secretRef:
+            name: app-secrets
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+  backoffLimit: 3

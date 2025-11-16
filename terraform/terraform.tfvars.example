@@ -1,0 +1,66 @@
+# Example Terraform Variables File
+# Copy this file to terraform.tfvars and update with your values
+
+# AWS Configuration
+aws_region = "us-west-2"
+environment = "dev"
+project_name = "ev-chargershare"
+cluster_name = "ev-chargershare-cluster"
+
+# VPC Configuration
+vpc_cidr = "10.0.0.0/16"
+public_subnet_cidrs = ["10.0.1.0/24", "10.0.2.0/24"]
+private_subnet_cidrs = ["10.0.10.0/24", "10.0.20.0/24"]
+
+# Application Domain (optional)
+app_domain = ""  # e.g., "app.yourdomain.com"
+ssl_certificate_arn = ""  # ARN of your SSL certificate
+
+# Security - CHANGE THESE IN PRODUCTION!
+jwt_secret = "your-super-secret-jwt-key-change-in-production"
+jwt_refresh_secret = "your-super-secret-refresh-key-change-in-production"
+
+# Stripe Configuration (optional)
+stripe_secret_key = ""
+stripe_publishable_key = ""
+
+# AWS S3 Configuration (will use EKS node instance profile if not provided)
+aws_access_key_id = ""
+aws_secret_access_key = ""
+
+# Email Configuration (optional)
+email_host = ""  # e.g., "smtp.gmail.com"
+email_port = "587"
+email_user = ""  # e.g., "your-email@gmail.com"
+email_password = ""  # App password for Gmail
+
+# OpenCage API Key for geocoding (optional)
+opencage_api_key = ""
+
+# Scaling Configuration
+min_nodes = 1
+max_nodes = 10
+desired_nodes = 2
+
+# Instance Types
+instance_types = ["t3.medium", "t3.large"]
+
+# Cost Optimization
+enable_spot_instances = false
+
+# Redis Configuration
+redis_node_type = "cache.t3.micro"
+redis_num_cache_nodes = 1
+
+# Monitoring and Security
+enable_monitoring = true
+enable_backup = true
+enable_secrets_encryption = true
+enable_network_policy = true
+
+# Backup Configuration
+backup_retention_days = 7
+enable_cross_region_backup = false
+
+# Logging
+log_retention_days = 7

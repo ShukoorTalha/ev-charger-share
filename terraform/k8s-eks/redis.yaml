@@ -1,0 +1,205 @@
+# Redis Deployment for EKS
+# Note: In production, consider using AWS ElastiCache instead of self-managed Redis
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-config
+  namespace: evchargershare
+data:
+  redis.conf: |
+    # Redis configuration for Kubernetes
+    bind 0.0.0.0
+    port 6379
+    
+    # Memory and persistence settings
+    maxmemory 256mb
+    maxmemory-policy allkeys-lru
+    
+    # Persistence (optional - comment out for cache-only usage)
+    save 900 1
+    save 300 10
+    save 60 10000
+    
+    # Security
+    requirepass redis123  # Change this in production
+    
+    # Logging
+    loglevel notice
+    
+    # Performance
+    tcp-keepalive 300
+    timeout 0
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-pvc
+  namespace: evchargershare
+  labels:
+    app: redis
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: gp3
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: evchargershare
+  labels:
+    app: redis
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+        version: v1
+    spec:
+      containers:
+      - name: redis
+        image: redis:7.2-alpine
+        ports:
+        - containerPort: 6379
+          name: redis
+        command:
+        - redis-server
+        - /etc/redis/redis.conf
+        env:
+        - name: REDIS_PASSWORD
+          value: "redis123"  # Change this in production
+        volumeMounts:
+        - name: redis-data
+          mountPath: /data
+        - name: redis-config
+          mountPath: /etc/redis
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 999
+          capabilities:
+            drop:
+            - ALL
+      volumes:
+      - name: redis-data
+        persistentVolumeClaim:
+          claimName: redis-pvc
+      - name: redis-config
+        configMap:
+          name: redis-config
+      securityContext:
+        fsGroup: 999
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+  namespace: evchargershare
+  labels:
+    app: redis
+spec:
+  type: ClusterIP
+  ports:
+  - port: 6379
+    targetPort: 6379
+    protocol: TCP
+    name: redis
+  selector:
+    app: redis
+
+---
+# Redis Sentinel for high availability (optional)
+# Uncomment this section if you need Redis HA
+#
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: redis-sentinel
+#   namespace: evchargershare
+#   labels:
+#     app: redis-sentinel
+# spec:
+#   replicas: 3
+#   selector:
+#     matchLabels:
+#       app: redis-sentinel
+#   template:
+#     metadata:
+#       labels:
+#         app: redis-sentinel
+#     spec:
+#       containers:
+#       - name: redis-sentinel
+#         image: redis:7.2-alpine
+#         ports:
+#         - containerPort: 26379
+#           name: sentinel
+#         command:
+#         - redis-sentinel
+#         - /etc/redis/sentinel.conf
+#         volumeMounts:
+#         - name: sentinel-config
+#           mountPath: /etc/redis
+#         resources:
+#           requests:
+#             memory: "64Mi"
+#             cpu: "50m"
+#           limits:
+#             memory: "128Mi"
+#             cpu: "100m"
+#       volumes:
+#       - name: sentinel-config
+#         configMap:
+#           name: redis-sentinel-config
+#
+# ---
+# apiVersion: v1
+# kind: ConfigMap
+# metadata:
+#   name: redis-sentinel-config
+#   namespace: evchargershare
+# data:
+#   sentinel.conf: |
+#     port 26379
+#     sentinel monitor mymaster redis-service 6379 2
+#     sentinel auth-pass mymaster redis123
+#     sentinel down-after-milliseconds mymaster 5000
+#     sentinel parallel-syncs mymaster 1
+#     sentinel failover-timeout mymaster 10000

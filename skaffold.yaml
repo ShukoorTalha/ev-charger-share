@@ -1,0 +1,73 @@
+apiVersion: skaffold/v2beta29
+kind: Config
+metadata:
+  name: evchargershare
+build:
+  artifacts:
+  - image: chargershare-backend
+    context: ./backend
+    docker:
+      dockerfile: Dockerfile
+  - image: chargershare-frontend
+    context: ./frontend
+    docker:
+      dockerfile: Dockerfile
+  local:
+    push: false
+    useDockerCLI: true
+    useBuildkit: true
+deploy:
+  kubectl:
+    manifests:
+    - k8s/namespace.yaml
+    - k8s/configmap.yaml
+    - k8s/mongodb.yaml
+    - k8s/redis.yaml
+    - k8s/backend.yaml
+    - k8s/frontend.yaml
+    - k8s/ingress.yaml
+portForward:
+- resourceType: service
+  resourceName: frontend-service
+  namespace: evchargershare
+  port: 80
+  localPort: 8080
+- resourceType: service
+  resourceName: backend-service
+  namespace: evchargershare
+  port: 5000
+  localPort: 5001
+profiles:
+- name: dev
+  build:
+    artifacts:
+    - image: chargershare-backend
+      context: ./backend
+      docker:
+        dockerfile: Dockerfile
+      sync:
+        manual:
+        - src: "src/**/*.js"
+          dest: "/app/src"
+    - image: chargershare-frontend
+      context: ./frontend
+      docker:
+        dockerfile: Dockerfile
+      sync:
+        manual:
+        - src: "src/**/*.js"
+          dest: "/app/src"
+        - src: "src/**/*.jsx"
+          dest: "/app/src"
+        - src: "src/**/*.css"
+          dest: "/app/src"
+  deploy:
+    kubectl:
+      manifests:
+      - k8s/namespace.yaml
+      - k8s/configmap.yaml
+      - k8s/mongodb.yaml
+      - k8s/redis.yaml
+      - k8s/backend.yaml
+      - k8s/frontend.yaml
+      - k8s/ingress.yaml
