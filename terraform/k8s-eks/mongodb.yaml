@@ -1,0 +1,149 @@
+# MongoDB Deployment for EKS with persistent storage
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongodb-pvc
+  namespace: evchargershare
+  labels:
+    app: mongodb
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: gp3  # Use GP3 storage class for better performance
+  resources:
+    requests:
+      storage: 20Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongodb
+  namespace: evchargershare
+  labels:
+    app: mongodb
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongodb
+  template:
+    metadata:
+      labels:
+        app: mongodb
+        version: v1
+    spec:
+      containers:
+      - name: mongodb
+        image: mongo:7.0
+        ports:
+        - containerPort: 27017
+          name: mongodb
+        env:
+        - name: MONGO_INITDB_ROOT_USERNAME
+          value: "admin"
+        - name: MONGO_INITDB_ROOT_PASSWORD
+          value: "password123"  # Change this in production
+        - name: MONGO_INITDB_DATABASE
+          value: "evchargershare"
+        volumeMounts:
+        - name: mongodb-data
+          mountPath: /data/db
+        - name: mongodb-config
+          mountPath: /data/configdb
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 999
+          runAsGroup: 999
+          capabilities:
+            drop:
+            - ALL
+      volumes:
+      - name: mongodb-data
+        persistentVolumeClaim:
+          claimName: mongodb-pvc
+      - name: mongodb-config
+        emptyDir: {}
+      securityContext:
+        fsGroup: 999
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb-service
+  namespace: evchargershare
+  labels:
+    app: mongodb
+spec:
+  type: ClusterIP
+  ports:
+  - port: 27017
+    targetPort: 27017
+    protocol: TCP
+    name: mongodb
+  selector:
+    app: mongodb
+
+---
+# MongoDB Backup CronJob (optional)
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mongodb-backup
+  namespace: evchargershare
+spec:
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: mongodb-backup
+            image: mongo:7.0
+            command:
+            - /bin/bash
+            - -c
+            - |
+              BACKUP_NAME="backup-$(date +%Y%m%d-%H%M%S)"
+              mongodump --host mongodb-service:27017 --username admin --password password123 --authenticationDatabase admin --out /backup/$BACKUP_NAME
+              echo "Backup completed: $BACKUP_NAME"
+            volumeMounts:
+            - name: backup-storage
+              mountPath: /backup
+            env:
+            - name: MONGO_HOST
+              value: "mongodb-service"
+            - name: MONGO_PORT
+              value: "27017"
+          volumes:
+          - name: backup-storage
+            persistentVolumeClaim:
+              claimName: mongodb-backup-pvc
+          restartPolicy: OnFailure
+
+---
+# Persistent Volume for MongoDB backups
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongodb-backup-pvc
+  namespace: evchargershare
+  labels:
+    app: mongodb-backup
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: gp3
+  resources:
+    requests:
+      storage: 10Gi
