@@ -1,10 +1,18 @@
 import axios from 'axios';
 import { toast } from 'react-toastify';
 
+// Determine API base URL at runtime to ensure requests go through nginx proxy
+const getBaseURL = () => {
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return window.location.origin;
+  }
+  return '';
+};
+
 // Create axios instance with base configuration
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5001',
-  timeout: 10000,
+  baseURL: getBaseURL(),
+  timeout: 30000, // Increased timeout to 30 seconds
   headers: {
     'Content-Type': 'application/json',
   },
@@ -69,10 +77,17 @@ api.interceptors.response.use(
           toast.error(response.data?.message || 'An error occurred.');
       }
     } else if (error.request) {
-      // Network error
-      toast.error('Network error. Please check your connection.');
+      // Network error - request was made but no response received
+      console.error('Network error details:', {
+        message: error.message,
+        code: error.code,
+        request: error.request,
+        config: error.config
+      });
+      toast.error('Network error. Please check your connection and try again.');
     } else {
       // Other error
+      console.error('Unexpected error:', error);
       toast.error('An unexpected error occurred.');
     }
     
