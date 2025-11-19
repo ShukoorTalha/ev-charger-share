@@ -12,7 +12,7 @@ services:
       - MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME:-admin}
       - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD:-password}
     ports:
-      - "27017:27017"
+      - "27018:27017"
     networks:
       - chargershare-network
     healthcheck:
@@ -48,7 +48,7 @@ services:
       - AWS_REGION=${AWS_REGION:-us-east-1}
       - S3_BUCKET_NAME=${S3_BUCKET_NAME}
     ports:
-      - "5001:5000"
+      - "5000:5000"
     volumes:
       - ./backend/uploads:/app/uploads
       - ./backend/logs:/app/logs
@@ -70,8 +70,10 @@ services:
     restart: always
     depends_on:
       - backend
+    environment:
+      - BACKEND_SERVICE_NAME=backend
     ports:
-      - "80:80"
+      - "3000:80"
     networks:
       - chargershare-network
 
@@ -81,7 +83,7 @@ services:
     container_name: chargershare-redis
     restart: always
     ports:
-      - "6379:6379"
+      - "6380:6379"
     volumes:
       - redis-data:/data
     networks:

@@ -19,6 +19,9 @@ spec:
       - name: frontend
         image: chargershare-frontend:latest
         imagePullPolicy: Never
+        env:
+        - name: BACKEND_SERVICE_NAME
+          value: "backend-service"
         ports:
         - containerPort: 80
         resources:
