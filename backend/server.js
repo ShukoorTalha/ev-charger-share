@@ -4,6 +4,7 @@ const helmet = require('helmet');
 const compression = require('compression');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
+const fs = require('fs');
 require('dotenv').config();
 
 const { dbConnection } = require('./config/database'); 
@@ -11,6 +12,9 @@ const errorHandler = require('./middleware/errorHandler');
 
 // Initialize Express app
 const app = express();
+
+// Trust proxy (needed when behind nginx or other reverse proxy)
+app.set('trust proxy', 1);
 
 // Connect to MongoDB (skip in test environment for unit tests)
 if (process.env.NODE_ENV !== 'test') {
@@ -94,6 +98,22 @@ app.use('/api/ratings', ratingRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/notifications', notificationRoutes);
+
+// Serve frontend build if available (for single-container deployments)
+const frontendBuildPath = path.join(__dirname, '..', 'frontend-build');
+if (fs.existsSync(frontendBuildPath)) {
+  console.log('Serving frontend build from:', frontendBuildPath);
+  app.use(express.static(frontendBuildPath));
+
+  app.get('*', (req, res, next) => {
+    const apiPrefixes = ['/api', '/uploads', '/health'];
+    if (apiPrefixes.some(prefix => req.path.startsWith(prefix))) {
+      return next();
+    }
+
+    res.sendFile(path.join(frontendBuildPath, 'index.html'));
+  });
+}
 
 // Health check endpoint
 app.get('/health', (req, res) => {
