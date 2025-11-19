@@ -7,7 +7,7 @@ const User = require('../models/User');
 // @route   POST /api/auth/register
 // @desc    Register a new user
 router.post('/register', async (req, res) => {
-  const { email, password, role, firstName, lastName } = req.body;
+  const { email, password, role, firstName, lastName, phone } = req.body;
 
   // Basic input validation
   console.log('Registration request body:', req.body);
@@ -30,11 +30,16 @@ router.post('/register', async (req, res) => {
     }
 
     // Create new user
+    const profileData = { firstName, lastName };
+    if (phone) {
+      profileData.phone = phone;
+    }
+    
     user = new User({
       email,
       password,
       role,
-      profile: { firstName, lastName }
+      profile: profileData
     });
 
     // Save user (password will be hashed by pre-save hook)
@@ -54,15 +59,44 @@ router.post('/register', async (req, res) => {
         audience: 'evchargershare-users'
       },
       (err, token) => {
-        if (err) throw err;
+        if (err) {
+          console.error('JWT signing error:', err);
+          return res.status(500).json({
+            success: false,
+            message: 'Failed to generate authentication token'
+          });
+        }
         res.status(201).json({ success: true, token });
       }
     );
   } catch (err) {
-    console.error('Registration error:', err.message);
+    console.error('Registration error:', err);
+    console.error('Error details:', {
+      message: err.message,
+      name: err.name,
+      stack: err.stack
+    });
+    
+    // Handle validation errors
+    if (err.name === 'ValidationError') {
+      const errors = Object.values(err.errors).map(e => e.message).join(', ');
+      return res.status(400).json({
+        success: false,
+        message: `Validation error: ${errors}`
+      });
+    }
+    
+    // Handle duplicate key error
+    if (err.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email already exists'
+      });
+    }
+    
     res.status(500).json({
       success: false,
-      message: err.message
+      message: err.message || 'Registration failed. Please try again later.'
     });
   }
 });

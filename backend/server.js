@@ -12,6 +12,9 @@ const errorHandler = require('./middleware/errorHandler');
 // Initialize Express app
 const app = express();
 
+// Trust proxy (needed when behind nginx or other reverse proxy)
+app.set('trust proxy', 1);
+
 // Connect to MongoDB (skip in test environment for unit tests)
 if (process.env.NODE_ENV !== 'test') {
   dbConnection.connect().catch(err => {
