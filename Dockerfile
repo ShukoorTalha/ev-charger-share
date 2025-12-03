@@ -8,7 +8,10 @@ COPY frontend/package*.json ./
 RUN npm install
 
 # Build production assets
-COPY frontend .
+# Copy all frontend files explicitly to ensure public directory is included
+# Using COPY with trailing slash to copy directory contents
+COPY frontend/public/ ./public/
+COPY frontend/src/ ./src/
 RUN npm run build:prod
 
 
