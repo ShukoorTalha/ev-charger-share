@@ -16,7 +16,7 @@ pipeline {
         // Environment variables for the application
         NODE_ENV = 'production'
         MONGODB_URI = "${env.MONGODB_URI ?: 'mongodb://mongoUser:mongoPass@mongodb:27017/evchargershare?authSource=admin'}"
-        JWT_SECRET = "${env.JWT_SECRET ?: credentials('jwt-secret')}"
+        JWT_SECRET = env.JWT_SECRET ?: credentials('jwt-secret')
         FRONTEND_URL = "${env.FRONTEND_URL ?: 'http://localhost:8080'}"
     }
     

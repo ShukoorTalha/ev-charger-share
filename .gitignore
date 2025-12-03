@@ -430,3 +430,6 @@ local-*
 notes.md
 TODO.md
 scratch.*
+
+# Accidental diff/temp files
+/file
