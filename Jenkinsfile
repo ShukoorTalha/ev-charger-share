@@ -16,7 +16,11 @@ pipeline {
         // Environment variables for the application
         NODE_ENV     = 'production'
         MONGODB_URI  = "${env.MONGODB_URI ?: 'mongodb://mongoUser:mongoPass@mongodb:27017/evchargershare?authSource=admin'}"
-        JWT_SECRET   = env.JWT_SECRET ?: credentials('jwt-secret')
+        // Bind the credential to an intermediate variable here. We cannot
+        // use expressions like `env.JWT_SECRET ?: credentials('id')` directly
+        // in the `environment` block, so expose the credential and then
+        // set `env.JWT_SECRET` in a short scripted stage below if needed.
+        JWT_SECRET_CRED = credentials('jwt-secret')
         FRONTEND_URL = "${env.FRONTEND_URL ?: 'http://localhost:8080'}"
     }
 
@@ -33,6 +37,22 @@ pipeline {
                     echo "Checking out code from ${env.GIT_BRANCH}"
                     checkout scm
                     sh 'git log -1 --pretty=format:"%h - %an, %ar : %s"'
+                }
+            }
+        }
+
+        stage('Prepare Environment') {
+            steps {
+                script {
+                    // If JWT_SECRET wasn't supplied from the environment (e.g. via
+                    // Jenkins global env or an external CI variable), use the
+                    // injected credential.
+                    if (!env.JWT_SECRET || env.JWT_SECRET.trim() == '') {
+                        env.JWT_SECRET = env.JWT_SECRET_CRED
+                        echo "JWT_SECRET set from credentials"
+                    } else {
+                        echo "JWT_SECRET provided by environment, leaving as-is"
+                    }
                 }
             }
         }
