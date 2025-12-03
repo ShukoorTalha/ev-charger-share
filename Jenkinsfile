@@ -1,32 +1,31 @@
 pipeline {
     agent any
-    
+
     environment {
         // Docker image configuration
-        IMAGE_NAME = 'evchargershare'
-        IMAGE_TAG = "${env.BUILD_NUMBER}-${env.GIT_COMMIT.take(7)}"
-        DOCKER_REGISTRY = "${env.DOCKER_REGISTRY ?: 'localhost:5000'}"
-        FULL_IMAGE_NAME = "${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+        IMAGE_NAME        = 'evchargershare'
+        IMAGE_TAG         = "${env.BUILD_NUMBER}-${env.GIT_COMMIT.take(7)}"
+        DOCKER_REGISTRY   = "${env.DOCKER_REGISTRY ?: 'localhost:5000'}"
+        FULL_IMAGE_NAME   = "${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
         LATEST_IMAGE_NAME = "${DOCKER_REGISTRY}/${IMAGE_NAME}:latest"
-        
+
         // Application configuration
-        APP_PORT = "${env.APP_PORT ?: '8080'}"
+        APP_PORT     = "${env.APP_PORT ?: '8080'}"
         COMPOSE_FILE = 'docker-compose.single.yml'
-        
+
         // Environment variables for the application
-        NODE_ENV = 'production'
-        MONGODB_URI = "${env.MONGODB_URI ?: 'mongodb://mongoUser:mongoPass@mongodb:27017/evchargershare?authSource=admin'}"
-        JWT_SECRET = env.JWT_SECRET ?: credentials('jwt-secret')
+        NODE_ENV     = 'production'
+        MONGODB_URI  = "${env.MONGODB_URI ?: 'mongodb://mongoUser:mongoPass@mongodb:27017/evchargershare?authSource=admin'}"
+        JWT_SECRET   = env.JWT_SECRET ?: credentials('jwt-secret')
         FRONTEND_URL = "${env.FRONTEND_URL ?: 'http://localhost:8080'}"
     }
-    
+
     options {
         buildDiscarder(logRotator(numToKeepStr: '10'))
         timeout(time: 30, unit: 'MINUTES')
         timestamps()
-        ansiColor('xterm')
     }
-    
+
     stages {
         stage('Checkout') {
             steps {
@@ -37,27 +36,29 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Build Docker Image') {
             steps {
-                script {
-                    echo "Building Docker image: ${FULL_IMAGE_NAME}"
-                    sh """
-                        docker build -t ${FULL_IMAGE_NAME} -t ${LATEST_IMAGE_NAME} .
-                    """
+                ansiColor('xterm') {
+                    script {
+                        echo "Building Docker image: ${FULL_IMAGE_NAME}"
+                        sh """
+                            docker build -t ${FULL_IMAGE_NAME} -t ${LATEST_IMAGE_NAME} .
+                        """
+                    }
                 }
             }
             post {
                 success {
                     echo "✅ Docker image built successfully"
-                    sh "docker images | grep ${IMAGE_NAME}"
+                    sh "docker images | grep ${IMAGE_NAME} || true"
                 }
                 failure {
                     echo "❌ Docker image build failed"
                 }
             }
         }
-        
+
         stage('Run Backend Tests') {
             steps {
                 script {
@@ -72,26 +73,25 @@ pipeline {
                         """
                     } catch (Exception e) {
                         echo "⚠️  Tests failed, but continuing pipeline..."
-                        // Uncomment the next line to fail the build on test failures
+                        // To fail build on test failure, uncomment:
                         // currentBuild.result = 'FAILURE'
                     }
                 }
             }
             post {
                 always {
-                    // Archive test results if they exist
+                    // Archive test coverage and results
                     archiveArtifacts artifacts: 'backend/coverage/**/*', allowEmptyArchive: true
-                    junit 'backend/coverage/**/*.xml', allowEmptyArchive: true
+                    junit testResults: 'backend/coverage/**/*.xml', allowEmptyResults: true
                 }
             }
         }
-        
+
         stage('Security Scan') {
             steps {
                 script {
                     echo "Running security scan on Docker image..."
                     try {
-                        // Trivy security scan (if available)
                         sh """
                             docker run --rm \
                                 -v /var/run/docker.sock:/var/run/docker.sock \
@@ -103,7 +103,7 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Push to Registry') {
             when {
                 anyOf {
@@ -126,7 +126,7 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Deploy with Docker Compose') {
             steps {
                 script {
@@ -134,14 +134,14 @@ pipeline {
                     sh """
                         # Stop and remove existing containers
                         docker-compose -f ${COMPOSE_FILE} down || true
-                        
-                        # Update image tag in compose file or use environment variable
+
+                        # Export image info for compose
                         export IMAGE_TAG=${IMAGE_TAG}
                         export IMAGE_NAME=${IMAGE_NAME}
-                        
+
                         # Start services
                         docker-compose -f ${COMPOSE_FILE} up -d
-                        
+
                         # Wait for services to be healthy
                         sleep 10
                     """
@@ -156,7 +156,7 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Health Check') {
             steps {
                 script {
@@ -164,7 +164,6 @@ pipeline {
                     retry(5) {
                         sleep(5)
                         sh """
-                            # Check if the application is responding
                             curl -f http://localhost:${APP_PORT}/health || exit 1
                             echo "✅ Health check passed"
                         """
@@ -172,7 +171,7 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Integration Tests') {
             steps {
                 script {
@@ -206,8 +205,7 @@ pipeline {
                         sh """
                             # Wait for services to be fully ready
                             sleep 15
-                            
-                            # Run integration tests (if available)
+
                             docker run --rm \
                                 --network ${networkName} \
                                 -e API_URL=http://app:5000 \
@@ -221,7 +219,7 @@ pipeline {
             }
         }
     }
-    
+
     post {
         always {
             script {
@@ -235,7 +233,6 @@ pipeline {
         success {
             echo "✅ Pipeline succeeded!"
             script {
-                // Send success notification (customize as needed)
                 sh """
                     echo "Build ${env.BUILD_NUMBER} completed successfully"
                     echo "Image: ${FULL_IMAGE_NAME}"
@@ -246,20 +243,17 @@ pipeline {
         failure {
             echo "❌ Pipeline failed!"
             script {
-                // Collect logs for debugging
                 sh """
                     echo "=== Docker Compose Logs ==="
                     docker-compose -f ${COMPOSE_FILE} logs --tail=50 || true
-                    
+
                     echo "=== Container Status ==="
                     docker-compose -f ${COMPOSE_FILE} ps || true
                 """
             }
         }
         cleanup {
-            // Clean up workspace
             cleanWs()
         }
     }
 }
-
