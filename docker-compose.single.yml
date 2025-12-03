@@ -1,0 +1,107 @@
+version: '3.8'
+
+services:
+  app:
+    image: ${IMAGE_NAME:-evchargershare}:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: evchargershare-app
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8080}:5000"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # Backend settings
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: 5000
+      MONGODB_URI: ${MONGODB_URI:-mongodb://mongoUser:mongoPass@mongodb:27017/evchargershare?authSource=admin}
+      JWT_SECRET: ${JWT_SECRET:-your_jwt_secret_key_change_in_production}
+      JWT_EXPIRE: ${JWT_EXPIRE:-7d}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-your_jwt_refresh_secret_change_in_production}
+      JWT_REFRESH_EXPIRE: ${JWT_REFRESH_EXPIRE:-30d}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
+      
+      # Email Configuration (optional)
+      EMAIL_HOST: ${EMAIL_HOST:-smtp.gmail.com}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_USER: ${EMAIL_USER:-}
+      EMAIL_PASS: ${EMAIL_PASS:-}
+      EMAIL_FROM: ${EMAIL_FROM:-noreply@evchargershare.com}
+      
+      # Stripe Configuration (optional)
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      
+      # AWS S3 Configuration (optional)
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME:-}
+      
+      # Rate Limiting
+      RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-900000}
+      RATE_LIMIT_MAX_REQUESTS: ${RATE_LIMIT_MAX_REQUESTS:-100}
+    volumes:
+      - ./backend/uploads:/app/backend/uploads
+      - ./backend/logs:/app/backend/logs
+    networks:
+      - evcs-net
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  mongodb:
+    image: mongo:6.0
+    container_name: evchargershare-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-mongoUser}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-mongoPass}
+    volumes:
+      - mongodb-data:/data/db
+    ports:
+      - "${MONGO_PORT:-27018}:27017"
+    networks:
+      - evcs-net
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    container_name: evchargershare-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    ports:
+      - "${REDIS_PORT:-6381}:6379"
+    networks:
+      - evcs-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  evcs-net:
+    driver: bridge
+
+volumes:
+  mongodb-data:
+    driver: local
+  redis-data:
+    driver: local
+
