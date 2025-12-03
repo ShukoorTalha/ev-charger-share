@@ -58,7 +58,7 @@ pipeline {
             }
         }
         
-        stage('Run Backend Tests') {
+                stage('Run Backend Tests') {
             steps {
                 script {
                     echo "Running backend tests..."
@@ -77,15 +77,13 @@ pipeline {
                     }
                 }
             }
-            post {
-                always {
-                    // Archive test results if they exist
-                    archiveArtifacts artifacts: 'backend/coverage/**/*', allowEmptyArchive: true
-                    junit 'backend/coverage/**/*.xml', allowEmptyArchive: true
-                }
-            }
-        }
-        
+          post {
+    always {
+        archiveArtifacts artifacts: 'backend/coverage/**/*', allowEmptyArchive: true
+        junit testResults: 'backend/coverage/**/*.xml', allowEmptyResults: true
+    }
+}
+
         stage('Security Scan') {
             steps {
                 script {
