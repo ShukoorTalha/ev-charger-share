@@ -259,11 +259,11 @@ pipeline {
     }
 
     options {
-        buildDiscarder(logRotator(numToKeepStr: '10'))
-        timeout(time: 30, unit: 'MINUTES')
-        timestamps()
-        ansiColor('xterm') // requires AnsiColor plugin installed[web:7][web:9]
-    }
+    buildDiscarder(logRotator(numToKeepStr: '10'))
+    timeout(time: 30, unit: 'MINUTES')
+    timestamps()
+}
+
 
     stages {
         stage('Checkout') {
@@ -277,14 +277,19 @@ pipeline {
         }
 
         stage('Build Docker Image') {
-            steps {
-                script {
-                    echo "Building Docker image: ${FULL_IMAGE_NAME}"
-                    sh """
-                        docker build -t ${FULL_IMAGE_NAME} -t ${LATEST_IMAGE_NAME} .
-                    """
-                }
+    steps {
+        ansiColor('xterm') {
+            script {
+                echo "Building Docker image: ${FULL_IMAGE_NAME}"
+                sh """
+                    docker build -t ${FULL_IMAGE_NAME} -t ${LATEST_IMAGE_NAME} .
+                """
             }
+        }
+    }
+    ...
+}
+
             post {
                 success {
                     echo "✅ Docker image built successfully"
