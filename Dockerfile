@@ -37,6 +37,9 @@ FROM node:20-alpine
 WORKDIR /app
 ENV NODE_ENV=production
 
+# Install curl for healthchecks (Alpine doesn't include curl by default)
+RUN apk add --no-cache curl
+
 # Copy backend and frontend build artifacts
 COPY --from=backend-build /app/backend ./backend
 COPY --from=frontend-build /app/frontend/build ./frontend-build
