@@ -178,13 +178,38 @@ pipeline {
                 script {
                     echo "Running integration tests..."
                     try {
+                        // Get the network name dynamically from docker-compose
+                        // Docker Compose creates networks as: {project_name}_{network_name}
+                        // Query the actual network name from running containers
+                        def networkName = sh(
+                            script: """
+                                # Try to get network name from running app container
+                                CONTAINER_ID=\$(docker-compose -f ${COMPOSE_FILE} ps -q app 2>/dev/null | head -1)
+                                if [ -n "\$CONTAINER_ID" ]; then
+                                    docker inspect --format='{{range \$k, \$v := .NetworkSettings.Networks}}{{printf "%s" \$k}}{{end}}' \$CONTAINER_ID 2>/dev/null | head -1
+                                else
+                                    # Fallback: use COMPOSE_PROJECT_NAME or directory name
+                                    PROJECT_NAME=\${COMPOSE_PROJECT_NAME:-}
+                                    if [ -z "\$PROJECT_NAME" ]; then
+                                        PROJECT_NAME=\$(basename \$(pwd) | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g')
+                                    fi
+                                    if [ -n "\$PROJECT_NAME" ] && [ "\$PROJECT_NAME" != "." ]; then
+                                        echo "\${PROJECT_NAME}_evcs-net"
+                                    else
+                                        echo "evcs-net"
+                                    fi
+                                fi
+                            """,
+                            returnStdout: true
+                        ).trim()
+                        
                         sh """
                             # Wait for services to be fully ready
                             sleep 15
                             
                             # Run integration tests (if available)
                             docker run --rm \
-                                --network ev-charger-share-main_evcs-net \
+                                --network ${networkName} \
                                 -e API_URL=http://app:5000 \
                                 node:20-alpine \
                                 sh -c 'echo "Integration tests would run here"' || true

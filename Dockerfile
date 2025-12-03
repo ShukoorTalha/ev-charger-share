@@ -12,6 +12,9 @@ RUN npm install
 # Using COPY with trailing slash to copy directory contents
 COPY frontend/public/ ./public/
 COPY frontend/src/ ./src/
+# Copy config files that may be needed for the build
+COPY frontend/.eslintrc* ./
+COPY frontend/.prettierrc* ./
 RUN npm run build:prod
 
 
