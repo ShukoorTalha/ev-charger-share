@@ -1,4 +1,4 @@
-FROM node:20-alpine AS build
+﻿FROM node:20-alpine AS build
 
 # Set working directory
 WORKDIR /app
@@ -33,7 +33,8 @@ COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 
 # Copy entrypoint script
 COPY docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
+# Ensure Unix line endings and make executable (Windows host may produce CRLF)
+RUN sed -i 's/\r$//' /docker-entrypoint.sh && chmod +x /docker-entrypoint.sh
 
 # Set default backend service name (for docker-compose)
 ENV BACKEND_SERVICE_NAME=backend
