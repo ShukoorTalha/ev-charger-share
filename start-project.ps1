@@ -32,11 +32,11 @@ Write-Host ""
 
 # Stop any existing containers (optional cleanup)
 Write-Host "Cleaning up previous containers..." -ForegroundColor Yellow
-docker compose -f docker-compose.yml down --remove-orphans 2>&1 | Out-Null
+docker compose down --remove-orphans 2>&1 | Out-Null
 
 # Build and start containers
 Write-Host "Building and starting containers..." -ForegroundColor Cyan
-docker compose -f docker-compose.yml up --build -d
+docker compose up --build -d
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host ""
@@ -50,8 +50,8 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host "MongoDB:   mongodb://admin:password@localhost:27018/chargershare" -ForegroundColor Cyan
     Write-Host "Redis:     redis://localhost:6380" -ForegroundColor Cyan
     Write-Host ""
-    Write-Host "To view logs: docker compose -f docker-compose.yml logs -f" -ForegroundColor Yellow
-    Write-Host "To stop:      docker compose -f docker-compose.yml down" -ForegroundColor Yellow
+    Write-Host "To view logs: docker compose logs -f" -ForegroundColor Yellow
+    Write-Host "To stop:      docker compose down" -ForegroundColor Yellow
     Write-Host ""
     
     # Wait a moment for services to start
@@ -61,7 +61,7 @@ if ($LASTEXITCODE -eq 0) {
     # Show container status
     Write-Host ""
     Write-Host "Container Status:" -ForegroundColor Green
-    docker compose -f docker-compose.yml ps
+    docker compose ps
     
 } else {
     Write-Host ""

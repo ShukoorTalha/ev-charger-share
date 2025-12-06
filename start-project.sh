@@ -34,11 +34,11 @@ echo ""
 
 # Stop any existing containers (optional cleanup)
 echo -e "\033[33mCleaning up previous containers...\033[0m"
-docker compose -f docker-compose.yml down --remove-orphans 2>&1 || true
+docker compose down --remove-orphans 2>&1 || true
 
 # Build and start containers
 echo -e "\033[36mBuilding and starting containers...\033[0m"
-docker compose -f docker-compose.yml up --build -d
+docker compose up --build -d
 
 echo ""
 echo -e "\033[32m✓ All services started successfully!\033[0m"
@@ -51,8 +51,8 @@ echo -e "\033[36mBackend:   http://localhost:5000\033[0m"
 echo -e "\033[36mMongoDB:   mongodb://admin:password@localhost:27018/chargershare\033[0m"
 echo -e "\033[36mRedis:     redis://localhost:6380\033[0m"
 echo ""
-echo -e "\033[33mTo view logs: docker compose -f docker-compose.yml logs -f\033[0m"
-echo -e "\033[33mTo stop:      docker compose -f docker-compose.yml down\033[0m"
+echo -e "\033[33mTo view logs: docker compose logs -f\033[0m"
+echo -e "\033[33mTo stop:      docker compose down\033[0m"
 echo ""
 
 # Wait a moment for services to start
@@ -62,4 +62,4 @@ sleep 5
 # Show container status
 echo ""
 echo -e "\033[32mContainer Status:\033[0m"
-docker compose -f docker-compose.yml ps
+docker compose ps
